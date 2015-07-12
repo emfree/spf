@@ -6,8 +6,10 @@ import requests
 
 
 class Emitter(object):
-    def __init__(self, sampler, interval=60, handlers=None):
+    def __init__(self, sampler, client_id=None, interval=60, handlers=None):
         self.sampler = sampler
+        # TODO(emfree): better name?
+        self.client_id = client_id
         self.interval = interval
         self.handlers = set()
         if handlers is not None:
@@ -20,8 +22,12 @@ class Emitter(object):
         self.handlers.remove(handler)
 
     def publish(self):
-        data = self.sampler.stats()
+        stats = self.sampler.stats()
         self.sampler.reset()
+        data = json.dumps({
+            'client_id': self.client_id,
+            'stats': stats
+        })
         for handler in self.handlers:
             handler.publish(data)
 
@@ -45,7 +51,7 @@ class StreamHandler(Handler):
         self.stream = stream or sys.stderr
 
     def publish(self, data):
-        self.stream.write(json.dumps(data) + '\n')
+        self.stream.write(data + '\n')
 
 
 class HTTPHandler(Handler):
@@ -54,7 +60,7 @@ class HTTPHandler(Handler):
         self.timeout = timeout
 
     def publish(self, data):
-        requests.post(self.url, data=json.dumps(data),
+        requests.post(self.url, data=data,
                       headers={'Content-Type: application/json'},
                       timeout=self.timeout)
 
@@ -66,4 +72,4 @@ class FileHandler(Handler):
 
     def publish(self, data):
         with open(self.filename, self.mode) as f:
-            f.write(json.dumps(data) + '\n')
+            f.write(data + '\n')

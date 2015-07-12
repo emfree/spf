@@ -1,0 +1,169 @@
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+  <script type="text/javascript" src="static/d3.js"></script>
+<style type="text/css">
+
+.chart {
+  display: block;
+  margin: auto;
+  margin-top: 60px;
+  font-size: 11px;
+}
+
+rect {
+  stroke: #eee;
+  fill: #aaa;
+  fill-opacity: .8;
+}
+
+rect.parent {
+  cursor: pointer;
+  fill: steelblue;
+}
+
+.label {
+  pointer-events: none;
+  text-overflow: ellipsis;
+  font-size: 11;
+  margin-left: 4px;
+  margin-right: 4px;
+}
+
+</style>
+</head>
+
+<body>
+  <svg width="2400" height="600">
+    <g class="partition"></g>
+  </svg>
+<div id="body"></div>
+<script type="text/javascript">
+
+var data = {
+  "name": "root",
+  "children": [
+  {
+    "name": "child1",
+    "value": 22
+  },
+  {
+    "name": "child2",
+    "children": [
+    {
+      "name": "child1",
+      "value": 14
+    },
+    {
+      "name": "filler",
+      "value": 14,
+      "children": [
+      {"name": "test",
+        "value": 5} ]
+    }
+    ],
+    "value": 33
+  }
+  ],
+  "value": 99
+}
+
+function highlight(elem) {
+    var matches = document.getElementsByName(elem.name);
+    if (matches) {
+        [].forEach.call(matches, function(elem) {
+            elem.firstChild.style.fill = "red";
+        });
+    }
+}
+
+function clear(elem) {
+    var matches = document.getElementsByName(elem.name);
+    if (matches) {
+        [].forEach.call(matches, function(elem) {
+            elem.firstChild.style.fill = "";
+        });
+    }
+}
+
+function augment(root) {
+  // Augment partitioning layout with "dummy" nodes so that internal nodes'
+  // values dictate their width. Annoying, but seems to be least painful
+  // option.  https://github.com/mbostock/d3/pull/574
+  if (root.children && (n = root.children.length)) {
+    root.children.forEach(augment);
+    var child_values = 0;
+    root.children.forEach(function(child) {
+      child_values += child.value;
+    });
+    if (child_values < root.value) {
+      root.children.push(
+        {"name": null,
+        "value": root.value - child_values,
+        "dummy": true}
+      )
+    }
+  }
+}
+
+augment(data);
+
+var w = 1600;
+  h = 600,
+  frameheight = 18;
+  x = d3.scale.linear().range([0, w]),
+  y = d3.scale.linear().range([0, frameheight]);
+
+var vis = d3.select("#body").append("div")
+  .attr("class", "chart")
+  .style("width", w + "px")
+  .style("height", h + "px")
+  .append("svg:svg")
+  .attr("width", w)
+  .attr("height", h);
+
+//tip = d3.tip().attr('class', 'd3-tip').offset([-10, 0]).html(function(d) { return d.name; });
+//vis.call(tip)
+
+var partition = d3.layout.partition()
+  .sort(function(a, b) {return d3.ascending(a.name, b.name)})
+
+d3.json("/example", function(root) {
+    augment(root);
+    var nodes = partition(root);
+    var kx = w / root.dx;
+
+    var g = d3.select("svg g.partition")
+      .selectAll("rect")
+      .data(nodes)
+      .enter()
+      .append("svg:g")
+      .attr("width", function(d) { return d.dx * kx })
+      .attr("height", function(d) { return frameheight; })
+      .attr("transform", function(d) { return "translate(" + x(d.x) + "," + (h - y(d.depth)) + ")"; })
+      .attr("name", function(d) { return d.name; })
+      .on('mouseenter', function (obj) {highlight(obj);})
+      .on('mouseleave', function (obj) {clear(obj);})
+
+    //g.append("svg:title").text(function(d) { return d.name });
+
+    rect = g.append("svg:rect")
+      .attr("width", function(d) { return d.dx * kx })
+      .attr("height", function(d) { return frameheight; })
+      .style("opacity", function(d) {return d.dummy ? 0 : 1;})
+
+    g.append("foreignObject")
+      .attr("class", "foreignObject")
+      .attr("width", function (d) { return d.dx * kx; })
+      .attr("height", function (d) { return frameheight; })
+      .append("xhtml:div")
+      .attr("class", "label")
+      .style("display", function (d) { return d.dx * kx < 25 ? "none" : "block";})
+      .text(function(d) { return d.name; })
+});
+
+
+</script>
+</body>
+</html>
