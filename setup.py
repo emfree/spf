@@ -10,6 +10,8 @@ setup(
     url='https://github.com/emfree/spf',
     include_package_data=True,
     install_requires=[
-        'requests'
+        'attrs',
+        'requests',
+        'flask'
     ]
 )

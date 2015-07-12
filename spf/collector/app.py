@@ -1,6 +1,7 @@
 import time
 from flask import Flask, request, jsonify, render_template
 from spf.util import parse
+from spf.data import from_file
 
 
 app = Flask(__name__)
@@ -8,7 +9,7 @@ app.config['DEBUG'] = True
 
 
 
-d = parse('/home/emfree/inbox/profile')
+d = from_file('/home/emfree/inbox/profile').serialize()
 
 
 @app.route('/collect', methods=['POST'])

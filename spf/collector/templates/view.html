@@ -41,34 +41,6 @@ rect.parent {
 <div id="body"></div>
 <script type="text/javascript">
 
-var data = {
-  "name": "root",
-  "children": [
-  {
-    "name": "child1",
-    "value": 22
-  },
-  {
-    "name": "child2",
-    "children": [
-    {
-      "name": "child1",
-      "value": 14
-    },
-    {
-      "name": "filler",
-      "value": 14,
-      "children": [
-      {"name": "test",
-        "value": 5} ]
-    }
-    ],
-    "value": 33
-  }
-  ],
-  "value": 99
-}
-
 function highlight(elem) {
     var matches = document.getElementsByName(elem.name);
     if (matches) {
@@ -107,8 +79,6 @@ function augment(root) {
   }
 }
 
-augment(data);
-
 var w = 1600;
   h = 600,
   frameheight = 18;
@@ -126,8 +96,13 @@ var vis = d3.select("#body").append("div")
 //tip = d3.tip().attr('class', 'd3-tip').offset([-10, 0]).html(function(d) { return d.name; });
 //vis.call(tip)
 
+
+// Support more concise JSON keys
 var partition = d3.layout.partition()
   .sort(function(a, b) {return d3.ascending(a.name, b.name)})
+  .value(function(d) {return d.v || d.value;})
+  .children(function(d) {return d.c || d.children;});
+
 
 d3.json("/example", function(root) {
     augment(root);
