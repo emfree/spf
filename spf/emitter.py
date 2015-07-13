@@ -1,12 +1,12 @@
 import abc
 import json
 import sys
-import time
+import gevent
 import requests
 
 
 class Emitter(object):
-    def __init__(self, sampler, client_id=None, interval=60, handlers=None):
+    def __init__(self, sampler, client_id=None, interval=10, handlers=None):
         self.sampler = sampler
         # TODO(emfree): better name?
         self.client_id = client_id
@@ -23,6 +23,8 @@ class Emitter(object):
 
     def publish(self):
         stats = self.sampler.stats()
+        # TODO(emfree): Is this really safe? What if the sampler actually runs
+        # during this call?
         self.sampler.reset()
         data = json.dumps({
             'client_id': self.client_id,
@@ -34,7 +36,7 @@ class Emitter(object):
     def run(self):
         self.sampler.start()
         while True:
-            time.sleep(self.interval)
+            gevent.sleep(self.interval)
             self.publish()
 
 
@@ -60,9 +62,13 @@ class HTTPHandler(Handler):
         self.timeout = timeout
 
     def publish(self, data):
-        requests.post(self.url, data=data,
-                      headers={'Content-Type: application/json'},
-                      timeout=self.timeout)
+        try:
+            requests.post(self.url, data=data,
+                          headers={'Content-Type': 'application/json'},
+                          timeout=self.timeout)
+        except:
+            # STOPSHIP(emfree) handle the right errors
+            pass
 
 
 class FileHandler(Handler):

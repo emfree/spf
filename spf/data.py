@@ -1,4 +1,5 @@
 import attr
+import collections
 
 
 class Node(object):
@@ -7,15 +8,19 @@ class Node(object):
         self.value = 0
         self.children = {}
 
-    def serialize(self):
+    def serialize(self, threshold=None):
         res = {
             'name': self.name,
             'value': self.value
         }
         if self.children:
-            res['children'] = [
-                child.serialize() for k, child in sorted(self.children.items())
+            serialized_children = [
+                child.serialize(threshold)
+                for _, child in sorted(self.children.items())
+                if child.value >= threshold
             ]
+            if serialized_children:
+                res['children'] = serialized_children
         return res
 
     def add_stack(self, frames, value):
@@ -29,6 +34,9 @@ class Node(object):
             self.children[head] = child
         child.add_stack(frames[1:], value)
 
+    def value(self):
+        return self.value
+
 
 @attr.s
 class Tag(object):
@@ -36,17 +44,17 @@ class Tag(object):
     timestamp = attr.ib()
 
 
-# TODO (emfree) improve this and the preceding class? Kinda repetitive
+# TODO (emfree) improve this and the preceding class? Kinda repetitive/murky
 class PersistentNode(object):
     def __init__(self, name):
         self.name = name
-        self.values = {}
+        self.values = collections.OrderedDict()
         self.children = {}
 
-    def serialize(self, tfilter=None):
-        value = sum(v for k, v in self.values.items() if tfilter(k))
-        if not value:
-            return
+    def serialize(self, tfilter=None, threshold=0):
+        value = self.value()
+        if not value or value < threshold:
+            return {}
         res = {
             'name': self.name,
             'value': value
@@ -64,7 +72,9 @@ class PersistentNode(object):
     def add_tagged_stack(self, frames, value, tag):
         if not isinstance(tag, Tag):
             raise TypeError()
-        self.values[tag] = value
+        if tag not in self.values:
+            self.values[tag] = 0
+        self.values[tag] += value
         if not frames:
             return
         head = frames[0]
@@ -74,6 +84,11 @@ class PersistentNode(object):
             self.children[head] = child
         child.add_tagged_stack(frames[1:], value, tag)
 
+    def value(self, tfilter=None):
+        if tfilter is None:
+            tfilter = lambda x: True
+        return sum(v for k, v in self.values.items() if tfilter(k))
+
 
 def from_file(filename):
     with open(filename) as f:
@@ -82,6 +97,9 @@ def from_file(filename):
     for line in raw:
         frames, value = line.split()
         frames = frames.split(';')
-        value = int(value)
+        try:
+            value = int(value)
+        except ValueError:
+            continue
         root.add_stack(frames, value)
     return root

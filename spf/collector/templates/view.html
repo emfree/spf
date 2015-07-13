@@ -3,6 +3,8 @@
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
   <script type="text/javascript" src="static/d3.js"></script>
+  <script type="text/javascript" src="static/d3.slider.js"></script>
+    <link rel="stylesheet" href="static/d3.slider.css" />
 <style type="text/css">
 
 .chart {
@@ -20,7 +22,6 @@ rect {
 
 rect.parent {
   cursor: pointer;
-  fill: steelblue;
 }
 
 .label {
@@ -35,27 +36,46 @@ rect.parent {
 </head>
 
 <body>
+  <div id="searchbar">
+    Filter: <input type="text" name="filter" id="filter">
+  </div>
   <svg width="2400" height="600">
     <g class="partition"></g>
   </svg>
-<div id="body"></div>
+<div id="focusedframe"></div>
+<div id="timescale"></div>
 <script type="text/javascript">
 
+
 function highlight(elem) {
-    var matches = document.getElementsByName(elem.name);
-    if (matches) {
-        [].forEach.call(matches, function(elem) {
-            elem.firstChild.style.fill = "red";
-        });
-    }
+    elem.firstChild.style.fill = "red";
 }
 
 function clear(elem) {
+    elem.firstChild.style.fill = "";
+}
+
+function highlight_repeats(elem) {
     var matches = document.getElementsByName(elem.name);
     if (matches) {
-        [].forEach.call(matches, function(elem) {
-            elem.firstChild.style.fill = "";
-        });
+        [].forEach.call(matches, highlight);
+    }
+}
+
+d3.select("#filter").on("keyup", function() {
+    var query = this.value;
+
+    [].forEach.call(document.getElementsByClassName("frame"), clear);
+    matches = document.querySelectorAll('[name*=' + query + ']');
+    if (matches) {
+        [].forEach.call(matches, highlight);
+    }
+})
+
+function clear_repeats(elem) {
+    var matches = document.getElementsByName(elem.name);
+    if (matches) {
+        [].forEach.call(matches, clear);
     }
 }
 
@@ -78,6 +98,8 @@ function augment(root) {
     }
   }
 }
+
+//slider = d3.select("#timescale").call(d3.slider());
 
 var w = 1600;
   h = 600,
@@ -104,7 +126,7 @@ var partition = d3.layout.partition()
   .children(function(d) {return d.c || d.children;});
 
 
-d3.json("/example", function(root) {
+d3.json("/data?threshold=.001", function(root) {
     augment(root);
     var nodes = partition(root);
     var kx = w / root.dx;
@@ -117,9 +139,10 @@ d3.json("/example", function(root) {
       .attr("width", function(d) { return d.dx * kx })
       .attr("height", function(d) { return frameheight; })
       .attr("transform", function(d) { return "translate(" + x(d.x) + "," + (h - y(d.depth)) + ")"; })
+      .attr("class", "frame")
       .attr("name", function(d) { return d.name; })
-      .on('mouseenter', function (obj) {highlight(obj);})
-      .on('mouseleave', function (obj) {clear(obj);})
+      .on('mouseenter', function (obj) {highlight_repeats(obj);})
+      .on('mouseleave', function (obj) {clear_repeats(obj);})
 
     //g.append("svg:title").text(function(d) { return d.name });
 
